@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日花费订阅 · 整体 vs 美国 vs 加拿大</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:   #fcfcfb;
+    --page-plane:  #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --muted:          #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --ring:           #fcfcfb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:   #1a1a19;
+      --page-plane:  #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --muted:          #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --ring:           #1a1a19;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:   #1a1a19;
+    --page-plane:  #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --muted:          #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --ring:           #1a1a19;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page-plane);
+    font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    color: var(--text-primary);
+    padding: 32px 16px;
+    display: flex;
+    justify-content: center;
+  }
+  .viz-root { width: 760px; }
+
+  header { margin-bottom: 8px; }
+  h1 { font-size: 20px; font-weight: 650; margin: 0 0 4px; letter-spacing: .01em; }
+  .sub { color: var(--text-secondary); font-size: 13px; margin: 0 0 6px; line-height: 1.5; }
+
+  .theme-toggle {
+    position: absolute; right: 16px; top: 16px;
+    background: var(--surface-1); color: var(--text-secondary);
+    border: 1px solid var(--baseline); border-radius: 999px;
+    padding: 4px 12px; font-size: 12px; cursor: pointer;
+  }
+
+  .chart-wrap {
+    position: relative;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 14px 8px;
+  }
+  svg { display: block; width: 732px; }
+  .panel-label { font-size: 12px; color: var(--muted); padding-left: 46px; margin-bottom: 0; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 6px 18px;
+    padding: 10px 2px 4px;
+    font-size: 12.5px; color: var(--text-secondary);
+  }
+  .legend .swatch { display: inline-flex; align-items: center; gap: 7px; }
+  .legend .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .legend .lbl { font-weight: 500; }
+  .legend .grp { color: var(--muted); margin-left: 2px; }
+
+  .note { color: var(--muted); font-size: 12px; margin: 8px 0 18px; line-height: 1.6; }
+
+  table {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  }
+  table th, table td {
+    padding: 5px 8px; text-align: right; font-variant-numeric: tabular-nums;
+    border-bottom: 1px solid var(--border);
+  }
+  table th:first-child, table td:first-child { text-align: left; }
+  table th { font-weight: 600; color: var(--text-secondary); background: var(--page-plane); font-size: 11px; }
+  table tr:last-child td { border-bottom: none; }
+  table td.miss { color: var(--muted); }
+  table td.action { text-align: left; color: var(--muted); font-size: 11px; }
+  table caption { caption-side: top; text-align: left; font-size: 13px; font-weight: 600; padding: 0 0 6px; }
+  table col.c-group { background: var(--page-plane); }
+
+  .crosshair {
+    position: absolute; top: 0; bottom: 0; width: 1px;
+    background: var(--baseline); pointer-events: none; display: none;
+  }
+  .tooltip {
+    position: absolute; pointer-events: none; display: none;
+    background: var(--surface-1); border: 1px solid var(--baseline); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; line-height: 1.55;
+    box-shadow: 0 2px 10px rgba(0,0,0,.12); min-width: 176px;
+  }
+  .tooltip .t-day { font-weight: 650; margin-bottom: 3px; }
+  .tooltip .t-row { display: flex; justify-content: space-between; gap: 14px; }
+  .tooltip .t-row .k { color: var(--text-secondary); }
+  .tooltip .t-row .v { font-variant-numeric: tabular-nums; font-weight: 550; }
+  .tooltip .t-row .v.miss { color: var(--muted); font-weight: 400; }
+  .tooltip .t-h { font-size: 11px; color: var(--muted); margin: 5px 0 2px; }
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="toggle" type="button">切换深色</button>
+<div class="viz-root">
+  <header>
+    <h1>日花费订阅 · 整体 vs 美国 vs 加拿大</h1>
+    <p class="sub">YT 珠宝投放，8/6–8/31（26 天）。蓝线 = 整体（日花费订阅），橙线 = 美国单开（前台美国订阅，8/14 起），绿线 = 加拿大单开（前台加拿大订阅，8/24 起）。实际成本 = 费用 ÷ 前台订阅。纵轴为对数刻度，拉开小数值间距以便看清趋势，各面板量级可对比。</p>
+  </header>
+
+  <div class="chart-wrap" id="wrap">
+    <div class="panel-label">实际成本</div>
+    <svg id="panel0" width="732" height="350" role="img" aria-label="实际成本面板"></svg>
+    <div class="panel-label" style="margin-top:6px;">前台订阅</div>
+    <svg id="panel2" width="732" height="250" role="img" aria-label="订阅面板"></svg>
+    <div class="panel-label" style="margin-top:6px;">费用/$</div>
+    <svg id="panel1" width="732" height="250" role="img" aria-label="费用面板"></svg>
+    <div class="crosshair" id="crosshair"></div>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+
+  <div class="legend" id="legend"></div>
+
+  <p class="note">
+    注：整体实际成本 8/6–8/11 快速从 0.78 降到 0.012（订阅 7→441）；8/12 追投全球、8/14 美国单开后回升到 0.03–0.04 企稳。美国单开（8/14 起，日费用 ~$10，订阅 19–55/天）实际成本 0.14–0.57，高于整体混匀成本——美国作为增量渠道成本偏高，但贡献稳定订阅量。8/24 投加拿大并暂停追投全球：加拿大（8/24 起）首日费用仅 $1.56、8/25 冲 $18.96 后稳定 ~$10/天，订阅 33–47/天，实际成本 0.047–0.56（8/25 首日高点 0.56，此后降到 0.22–0.31）——加拿大起步即接近美国同等的订阅体量、成本带也相近。整体 8/25 费用冲 $33.9 但订阅回落 337、成本峰值 0.10；8/26 改投全球。8/31 美国、加拿大订阅均待地理位置细分补齐（图中 8/31 留空）。
+  </p>
+
+  <table>
+    <caption>数据明细（整体 | 美国 | 加拿大单开）</caption>
+    <colgroup>
+      <col><col span="3"><col class="c-group"><col span="3"><col class="c-group"><col span="3"><col>
+    </colgroup>
+    <thead>
+      <tr><th>日期</th><th>费用/$</th><th>前台订阅</th><th>实际成本</th><th>美国费用/$</th><th>美国订阅</th><th>美国实际成本</th><th>加拿大费用/$</th><th>加拿大订阅</th><th>加拿大实际成本</th><th>动作备注</th></tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<script>
+const DAYS = ['8/6','8/7','8/8','8/9','8/10','8/11','8/12','8/13','8/14','8/15','8/16','8/17','8/18','8/19','8/20','8/21','8/22','8/23','8/24','8/25','8/26','8/27','8/28','8/29','8/30','8/31'];
+const ACTIONS = {
+  6:  '追投全球',
+  8:  '投美国',
+  18: '投加拿大 · 暂停追投全球',
+  20: '投全球',
+  25: '美国计划加素材'
+};
+
+// 配色：浅/深两套，已通过 CVD 校验；颜色跟随实体（整体=蓝 / 美国=橙 / 加拿大=绿）
+const THEME = {
+  light: { c1:'#2a78d6', c2:'#eb6834', c3:'#1baf7a', c4:'#eda100' },
+  dark:  { c1:'#3987e5', c2:'#d95926', c3:'#199e70', c4:'#c98500' }
+};
+
+const N = DAYS.length;
+// 各单开计划起点下标：美国 8/14 = 8；加拿大 8/24 = 18（8/31 订阅仍空 → 序列不含末日）
+const US = { start: 8, values: [
+  0.5679, 0.2965, 0.2248, 0.2784, 0.1926, 0.3024, 0.2341, 0.2092, 0.1875, 0.1852,
+  0.1915, 0.2381, 0.1902, 0.2503, 0.2120, 0.2195, 0.2774, 0.2591
+] };
+const CA = { start: 18, values: [
+  0.0473, 0.5576, 0.31, 0.3024, 0.2191, 0.2853, 0.2869
+] };
+const padFrom = (start, arr) => { const out = Array(N).fill(null); for (let i = 0; i < arr.length; i++) out[start + i] = arr[i]; return out; };
+const pad = arr => padFrom(US.start, arr);
+const padCA = arr => padFrom(CA.start, arr);
+
+const SERIES = [
+  { name:'实际成本',  group:'整体',   panel:0, slot:'c1', values:[0.780, 0.23955, 0.05385, 0.04395, 0.01811, 0.01211, 0.02296, 0.01956, 0.03686, 0.03097, 0.03427, 0.03339, 0.03152, 0.03637, 0.03498, 0.04168, 0.03544, 0.03675, 0.04809, 0.10059, 0.06316, 0.06789, 0.05143, 0.05635, 0.06449, 0.04533] },
+  { name:'实际成本',  group:'美国',   panel:0, slot:'c2', values:pad([0.5679, 0.2965, 0.2248, 0.2784, 0.1926, 0.3024, 0.2341, 0.2092, 0.1875, 0.1852, 0.1915, 0.2381, 0.1902, 0.2503, 0.2120, 0.2195, 0.2774]) },
+  { name:'实际成本',  group:'加拿大', panel:0, slot:'c3', values:padCA([0.0473, 0.5576, 0.31, 0.3024, 0.2191, 0.2853, 0.2869]) },
+  { name:'费用/$',    group:'整体',   panel:1, slot:'c1', values:[5.46, 5.27, 5.17, 5.67, 5.56, 5.34, 10.93, 10.56, 22.04, 21.46, 22.07, 21.20, 21.21, 21.02, 21.02, 21.13, 21.12, 20.69, 19.09, 33.90, 30.38, 30.82, 30.19, 31.50, 30.44, 25.70] },
+  { name:'费用/$',    group:'美国',   panel:1, slot:'c2', values:pad([10.79, 10.08, 10.34, 10.30, 10.21, 10.28, 10.30, 10.25, 10.31, 10.00, 9.96, 10.00, 9.89, 10.01, 9.54, 9.66, 9.43, 8.81]) },
+  { name:'费用/$',    group:'加拿大', panel:1, slot:'c3', values:padCA([1.56, 18.96, 10.23, 10.28, 10.30, 11.41, 10.33, 7.28]) },
+  { name:'前台订阅',  group:'整体',   panel:2, slot:'c1', values:[7, 22, 96, 129, 307, 441, 476, 540, 598, 693, 644, 635, 673, 578, 601, 507, 596, 563, 397, 337, 481, 454, 587, 559, 472, 567] },
+  { name:'前台订阅',  group:'美国',   panel:2, slot:'c2', values:pad([19, 34, 46, 37, 53, 34, 44, 49, 55, 54, 52, 42, 52, 40, 45, 44, 34]) },
+  { name:'前台订阅',  group:'加拿大', panel:2, slot:'c3', values:padCA([33, 34, 33, 34, 47, 40, 36]) },
+];
+
+// 面板级对数刻度；每面板独立绘图高度 plotH（实际成本面板刻度最密，单独拉高更疏）
+const PANELS = [
+  { id:'panel0', label:'实际成本', plotH: 300, ymin:0.005, ymax:2,    ticks:[0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2] },
+  { id:'panel1', label:'费用/$',   plotH: 192, ymin:1,     ymax:100,  ticks:[1, 2, 5, 10, 20, 50, 100] },
+  { id:'panel2', label:'前台订阅', plotH: 192, ymin:5,     ymax:1000, ticks:[5, 10, 20, 50, 100, 200, 500, 1000] },
+];
+
+const W = 732, LEFT = 46, RIGHT = 30;
+const PLOT_W = W - LEFT - RIGHT;      // 656
+const TOP = 14, BOTTOM = 36;
+
+let theme = 'light';
+const wrap = document.getElementById('wrap');
+const crosshair = document.getElementById('crosshair');
+const tooltip = document.getElementById('tooltip');
+
+const xPos = i => LEFT + PLOT_W * i / (N - 1);
+const yPos = (v, p) => TOP + p.plotH * (1 - Math.log(v / p.ymin) / Math.log(p.ymax / p.ymin));
+
+const NS = 'http://www.w3.org/2000/svg';
+function el(name, attrs) {
+  const n = document.createElementNS(NS, name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+}
+
+function fmt(v) {
+  if (v == null) return '无';
+  if (Number.isInteger(v)) return String(v);
+  const s = v.toPrecision(3);
+  return s.replace(/(\.\d*?)0+(?=$)/, '$1').replace(/\.$/, '');
+}
+
+function renderPanel(panelIdx) {
+  const p = PANELS[panelIdx];
+  const svg = document.getElementById(p.id);
+  svg.setAttribute('height', TOP + p.plotH + BOTTOM);
+  svg.innerHTML = '';
+
+  // 横向网格 + 底线（对数刻度）
+  for (const t of p.ticks) {
+    const y = yPos(t, p);
+    svg.appendChild(el('line', {
+      x1: LEFT, x2: LEFT + PLOT_W, y1: y, y2: y,
+      stroke: t === p.ticks[0] ? 'var(--baseline)' : 'var(--gridline)',
+      'stroke-width': 1
+    }));
+    const lb = el('text', { x: LEFT - 8, y: y + 4, 'text-anchor': 'end',
+      fill: 'var(--muted)', 'font-size': 11 });
+    lb.textContent = String(t);
+    svg.appendChild(lb);
+  }
+
+  // x 轴日期标签
+  DAYS.forEach((d, i) => {
+    const tx = el('text', { x: xPos(i), y: TOP + p.plotH + 20, 'text-anchor': 'middle',
+      fill: 'var(--muted)', 'font-size': 10.5 });
+    tx.textContent = d;
+    svg.appendChild(tx);
+  });
+
+  const color = THEME[theme];
+
+  // 折线 + 数据点（各单开线 起点前为 null → 断点）
+  SERIES.filter(s => s.panel === panelIdx).forEach(s => {
+    const c = color[s.slot];
+    const pts = s.values.map((v, i) => v == null ? null : [xPos(i), yPos(v, p)]);
+    let seg = [];
+    const flush = () => {
+      if (seg.length >= 2) {
+        svg.appendChild(el('polyline', { points: seg.map(q => q.join(',')).join(' '),
+          fill: 'none', stroke: c, 'stroke-width': 2, 'stroke-linejoin': 'round',
+          'stroke-linecap': 'round' }));
+      }
+      seg = [];
+    };
+    pts.forEach(q => { if (q) seg.push(q); else flush(); });
+    flush();
+
+    s.values.forEach((v, i) => {
+      if (v == null) return;
+      const cx = xPos(i), cy = yPos(v, p);
+      svg.appendChild(el('circle', { cx, cy, r: 4, fill: c, stroke: 'var(--ring)', 'stroke-width': 2 }));
+    });
+  });
+
+  // 数值标签：选择性标注（首日/末日/各单开首日必标，其余自动去重叠）
+  const labels = [];
+  SERIES.filter(s => s.panel === panelIdx).forEach(s => {
+    s.values.forEach((v, i) => {
+      if (v == null) return;
+      const cx = xPos(i), cy = yPos(v, p);
+      const must = (s.group === '美国' && i === US.start) || (s.group === '加拿大' && i === CA.start);
+      const anchor = i === 0 ? 'start' : (i === N - 1 ? 'end' : 'middle');
+      // 顶部贴边时标签放到点下方，避免越界
+      const ly = cy - 10 < TOP + 4 ? cy + 15 : cy - 8;
+      const lb = el('text', { x: i === 0 ? cx + 5 : (i === N - 1 ? cx - 5 : cx), y: ly,
+        'text-anchor': anchor, fill: 'var(--text-secondary)', 'font-size': 10.5, 'font-weight': 550, class: 'val' });
+      lb.textContent = fmt(v);
+      svg.appendChild(lb);
+      labels.push({ el: lb, i, first: i === 0, last: i === N - 1, must });
+    });
+  });
+
+  // 去重叠：优先级 首日/末日/各单开首日 > 其它；冲突时隐藏低优先级
+  labels.forEach(l => { l.box = l.el.getBBox(); });
+  labels.sort((a, b) => (Number(b.first || b.last || b.must) - Number(a.first || a.last || a.must)) || labels.indexOf(a) - labels.indexOf(b));
+  const kept = [];
+  for (const l of labels) {
+    let clash = false;
+    for (const k of kept) {
+      const ox = Math.min(l.box.x + l.box.width, k.box.x + k.box.width) - Math.max(l.box.x, k.box.x);
+      const oy = Math.min(l.box.y + l.box.height, k.box.y + k.box.height) - Math.max(l.box.y, k.box.y);
+      if (ox > 1.5 && oy > 1.5) { clash = true; break; }
+    }
+    if (clash) { l.el.setAttribute('display', 'none'); }
+    else { kept.push(l); }
+  }
+}
+
+const GROUPS = [['整体', 'c1'], ['美国', 'c2'], ['加拿大', 'c3']];
+
+function buildLegend() {
+  const c = THEME[theme];
+  const leg = document.getElementById('legend');
+  leg.innerHTML = '';
+  GROUPS.forEach(([name, slot]) => {
+    const item = document.createElement('span');
+    item.className = 'swatch';
+    item.innerHTML = '<span class="dot" style="background:' + c[slot] + '"></span>' +
+      '<span class="lbl">' + name + '</span>';
+    leg.appendChild(item);
+  });
+  leg.appendChild(document.createTextNode('（同色线表示同一口径；美国线 8/14 起，加拿大线 8/24 起；悬停折线可查看每日数值）'));
+}
+
+function buildTable() {
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = '';
+  // 表头顺序：费用/$ → 前台订阅 → 实际成本（SERIES 顺序不同，这里显式按表头排）
+  const colNames = ['费用/$', '前台订阅', '实际成本'];
+  const groupNames = GROUPS.map(g => g[0]);  // 整体/美国/加拿大
+  DAYS.forEach((d, i) => {
+    const tr = document.createElement('tr');
+    const tdDay = document.createElement('td');
+    tdDay.textContent = d;
+    tr.appendChild(tdDay);
+    groupNames.forEach(gn => {
+      colNames.forEach(n => {
+        const src = SERIES.find(x => x.group === gn && x.name === n);
+        const td = document.createElement('td');
+        const v = src.values[i];
+        td.textContent = v == null ? '无' : fmt(v);
+        if (v == null) td.className = 'miss';
+        tr.appendChild(td);
+      });
+    });
+    const tdA = document.createElement('td');
+    tdA.textContent = ACTIONS[i] || '';
+    tdA.className = 'action';
+    tr.appendChild(tdA);
+    tb.appendChild(tr);
+  });
+}
+
+function render() {
+  PANELS.forEach((p, i) => renderPanel(i));
+  buildLegend();
+  buildTable();
+  const c = THEME[theme];
+  document.querySelectorAll('#legend .dot').forEach((d, i) => {
+    d.style.background = c[GROUPS[i][1]];
+  });
+}
+
+// ---- 悬停：十字线 + tooltip ----
+function nearestDay(e) {
+  const rect = wrap.getBoundingClientRect();
+  const scale = W / rect.width;
+  const px = (e.clientX - rect.left) * scale;
+  const x = Math.round((px - LEFT) / (PLOT_W / (N - 1)));
+  return Math.max(0, Math.min(N - 1, x));
+}
+
+wrap.addEventListener('mousemove', e => {
+  const i = nearestDay(e);
+  const rect = wrap.getBoundingClientRect();
+  const scale = W / rect.width;
+  const px = (e.clientX - rect.left) * scale;
+
+  crosshair.style.display = 'block';
+  crosshair.style.left = (xPos(i) * scale) + 'px';
+  crosshair.style.top = '14px';
+  crosshair.style.bottom = '8px';
+
+  let html = '<div class="t-day">' + DAYS[i] + (ACTIONS[i] ? ' · ' + ACTIONS[i] : '') + '</div>';
+  GROUPS.forEach(([grp]) => {
+    const rows = SERIES.filter(s => s.group === grp);
+    html += '<div class="t-h">' + grp + '</div>';
+    rows.forEach(s => {
+      const v = s.values[i];
+      html += '<div class="t-row"><span class="k">' + s.name + '</span>' +
+        '<span class="v' + (v == null ? ' miss' : '') + '">' + (v == null ? '无' : fmt(v)) + '</span></div>';
+    });
+  });
+  tooltip.innerHTML = html;
+  tooltip.style.display = 'block';
+
+  const ttW = tooltip.offsetWidth, ttH = tooltip.offsetHeight;
+  const left = px;
+  const tipLeft = left + 14;
+  const overflow = tipLeft + ttW - rect.width;
+  tooltip.style.left = (overflow > 0 ? left - ttW - 14 : tipLeft) + 'px';
+  const tipTop = Math.max(10, Math.min(rect.height - ttH - 10, e.clientY - rect.top + 12));
+  tooltip.style.top = tipTop + 'px';
+});
+
+wrap.addEventListener('mouseleave', () => {
+  crosshair.style.display = 'none';
+  tooltip.style.display = 'none';
+});
+
+// ---- 主题 ----
+function applyTheme(t) {
+  theme = t;
+  document.documentElement.setAttribute('data-theme', t);
+  render();
+  document.getElementById('toggle').textContent = t === 'light' ? '切换深色' : '切换浅色';
+}
+document.getElementById('toggle').addEventListener('click', () => {
+  applyTheme(theme === 'light' ? 'dark' : 'light');
+});
+applyTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+</script>
+</body>
+</html>
